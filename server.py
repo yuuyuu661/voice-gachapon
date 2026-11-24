@@ -186,6 +186,16 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="OASIS Voice Gachapon", lifespan=lifespan)
 
 
+@app.middleware("http")
+async def prevent_stale_admin_assets(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/admin/"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
 async def require_session(pool: asyncpg.Pool, token: str):
     if not token or len(token) > 300:
         raise HTTPException(status_code=403, detail="Invalid session")
