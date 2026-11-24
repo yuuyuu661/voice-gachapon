@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const sessionFromUrl = new URLSearchParams(location.search).get("session") || "";
-if (sessionFromUrl) sessionStorage.setItem("voiceGachaSession", sessionFromUrl);
-const session = sessionFromUrl || sessionStorage.getItem("voiceGachaSession") || "";
+if (sessionFromUrl) localStorage.setItem("voiceGachaSession", sessionFromUrl);
+let session = sessionFromUrl || localStorage.getItem("voiceGachaSession") || "";
 if (sessionFromUrl) {
   const cleanUrl = new URL(location.href);
   cleanUrl.searchParams.delete("session");
@@ -43,10 +43,10 @@ function errorText(error) {
 async function initialize() {
   if (!session) {
     $("loginNotice").classList.remove("hidden");
-    $("userName").textContent = "未ログイン";
-    setStatus("Discordから専用リンクでアクセスしてください。");
+    $("loginNotice").textContent = "最初のシリアルコードを入力すると、あなた専用のコレクションが作成されます。使用したコードはコレクション復元にも使えます。";
+    $("userName").textContent = "はじめての方";
+    setStatus("シリアルコードを登録して始めてください。");
     setCredits(0);
-    $("serialCode").disabled = true;
     return;
   }
   try {
@@ -82,7 +82,7 @@ document.querySelectorAll(".machine-tab").forEach((button) => {
 $("serialForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const code = $("serialCode").value.trim();
-  if (!session || !code) return;
+  if (!code) return;
   const button = event.submitter;
   button.disabled = true;
   try {
@@ -90,9 +90,17 @@ $("serialForm").addEventListener("submit", async (event) => {
       method: "POST", headers: {"Content-Type": "application/json"},
       body: JSON.stringify({session, code})
     });
+    if (data.session) {
+      session = data.session;
+      localStorage.setItem("voiceGachaSession", session);
+      profile = await api(`/api/me?session=${encodeURIComponent(session)}`);
+      $("userName").textContent = profile.user_name;
+      $("loginNotice").classList.add("hidden");
+      await loadCollection();
+    }
     setCredits(data.credits);
     $("serialCode").value = "";
-    setStatus(data.already_redeemed ? "このコードは登録済みです。" : `${data.added}回分を追加しました！`);
+    setStatus(data.restored ? "コレクションを復元しました。" : data.already_redeemed ? "このコードは登録済みです。" : `${data.added}回分を追加しました！`);
   } catch (error) { setStatus(errorText(error)); }
   finally { button.disabled = false; }
 });

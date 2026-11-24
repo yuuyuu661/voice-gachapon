@@ -20,6 +20,12 @@ class VoiceGachaSecurityTests(unittest.TestCase):
         self.assertNotIn("casino_bets", lowered)
         self.assertNotIn("casino_balance", lowered)
         self.assertNotIn("update users", lowered)
+        self.assertNotIn("casino_sessions", lowered)
+
+    def test_standalone_sessions_are_hashed(self):
+        self.assertIn("voice_gacha_sessions", SOURCE)
+        self.assertIn("token_hash TEXT PRIMARY KEY", SOURCE)
+        self.assertIn("hashlib.sha256(token.encode", SOURCE)
 
     def test_serial_codes_are_hashed_and_single_use(self):
         self.assertIn("hashlib.sha256", SOURCE)

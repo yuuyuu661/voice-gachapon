@@ -27,7 +27,7 @@ _redeem_attempts: dict[str, list[float]] = {}
 
 
 class RedeemRequest(BaseModel):
-    session: str = Field(min_length=8, max_length=300)
+    session: str = Field(default="", max_length=300)
     code: str = Field(min_length=8, max_length=100)
 
 
@@ -105,6 +105,17 @@ async def ensure_schema(pool: asyncpg.Pool) -> None:
                 PRIMARY KEY (guild_id, user_id)
             );
 
+            CREATE TABLE IF NOT EXISTS voice_gacha_sessions (
+                token_hash TEXT PRIMARY KEY,
+                guild_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                user_name TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '10 years'
+            );
+            CREATE INDEX IF NOT EXISTS voice_gacha_sessions_user_idx
+                ON voice_gacha_sessions(guild_id,user_id);
+
             CREATE TABLE IF NOT EXISTS voice_gacha_serial_codes (
                 code_hash TEXT PRIMARY KEY,
                 code_hint TEXT NOT NULL,
@@ -181,16 +192,31 @@ async def require_session(pool: asyncpg.Pool, token: str):
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            UPDATE casino_sessions
+            UPDATE voice_gacha_sessions
             SET expires_at=NOW() + INTERVAL '10 years'
-            WHERE session_token=$1 AND expires_at>NOW()
+            WHERE token_hash=$1 AND expires_at>NOW()
             RETURNING user_id,guild_id,user_name
             """,
-            token,
+            hashlib.sha256(token.encode("utf-8")).hexdigest(),
         )
     if not row:
         raise HTTPException(status_code=403, detail="Invalid session")
     return row
+
+
+async def create_session(conn, guild_id: str, user_id: str, user_name: str) -> str:
+    token = secrets.token_urlsafe(32)
+    await conn.execute(
+        """
+        INSERT INTO voice_gacha_sessions(token_hash,guild_id,user_id,user_name)
+        VALUES($1,$2,$3,$4)
+        """,
+        hashlib.sha256(token.encode("utf-8")).hexdigest(),
+        guild_id,
+        user_id,
+        user_name,
+    )
+    return token
 
 
 async def account_credits(conn, guild_id: str, user_id: str) -> int:
@@ -236,9 +262,9 @@ async def me(session: str):
 
 @app.post("/api/redeem")
 async def redeem(req: RedeemRequest, request: Request):
-    data = await require_session(app.state.pool, req.session)
-    guild_id = str(data["guild_id"])
-    user_id = str(data["user_id"])
+    data = await require_session(app.state.pool, req.session) if req.session else None
+    guild_id = str(data["guild_id"]) if data else "standalone"
+    user_id = str(data["user_id"]) if data else ""
     check_redeem_rate(f"{request.client.host if request.client else 'unknown'}:{user_id}")
     digest = hash_code(req.code)
 
@@ -251,10 +277,39 @@ async def redeem(req: RedeemRequest, request: Request):
             if not code:
                 raise HTTPException(status_code=404, detail="Invalid serial code")
             if code["redeemed_at"]:
-                if str(code["redeemed_guild_id"]) == guild_id and str(code["redeemed_user_id"]) == user_id:
+                if data and str(code["redeemed_guild_id"]) == guild_id and str(code["redeemed_user_id"]) == user_id:
                     credits = await account_credits(conn, guild_id, user_id)
-                    return {"ok": True, "already_redeemed": True, "added": 0, "credits": credits}
+                    return {"ok": True, "already_redeemed": True, "added": 0, "credits": credits, "session": None}
+                if not data:
+                    restored_guild_id = str(code["redeemed_guild_id"])
+                    restored_user_id = str(code["redeemed_user_id"])
+                    account = await conn.fetchrow(
+                        "SELECT spin_credits FROM voice_gacha_accounts WHERE guild_id=$1 AND user_id=$2",
+                        restored_guild_id,
+                        restored_user_id,
+                    )
+                    if not account:
+                        raise HTTPException(status_code=409, detail="Serial account is unavailable")
+                    user_name = f"コレクター-{restored_user_id[-6:].upper()}"
+                    session_token = await create_session(
+                        conn, restored_guild_id, restored_user_id, user_name
+                    )
+                    return {
+                        "ok": True,
+                        "already_redeemed": True,
+                        "restored": True,
+                        "added": 0,
+                        "credits": int(account["spin_credits"]),
+                        "session": session_token,
+                    }
                 raise HTTPException(status_code=409, detail="Serial code already redeemed")
+
+            session_token = None
+            if not data:
+                user_id = uuid.uuid4().hex
+                session_token = await create_session(
+                    conn, guild_id, user_id, f"コレクター-{user_id[-6:].upper()}"
+                )
 
             await conn.execute(
                 """
@@ -283,7 +338,13 @@ async def redeem(req: RedeemRequest, request: Request):
                 guild_id,
                 user_id,
             )
-    return {"ok": True, "already_redeemed": False, "added": int(code["spins"]), "credits": int(credits)}
+    return {
+        "ok": True,
+        "already_redeemed": False,
+        "added": int(code["spins"]),
+        "credits": int(credits),
+        "session": session_token,
+    }
 
 
 def prize_payload(row, session: str) -> dict:
