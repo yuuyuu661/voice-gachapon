@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#17142f">
+  <title>Voice Gachapon 管理</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <header><div><p>OASIS VOICE GACHAPON</p><h1>管理コンソール</h1></div><a href="/">利用者画面</a></header>
+  <main>
+    <section id="loginCard" class="card login-card">
+      <h2>管理者ログイン</h2>
+      <p>環境変数 <code>VOICE_GACHA_ADMIN_PASSWORD</code> の値を入力してください。</p>
+      <form id="loginForm"><input id="password" type="password" autocomplete="current-password" required placeholder="管理パスワード"><button>ログイン</button></form>
+      <p id="loginStatus" class="status"></p>
+    </section>
+
+    <div id="dashboard" class="hidden">
+      <section class="stats" id="stats"></section>
+      <div class="columns">
+        <section class="card">
+          <h2>シリアルコード発行</h2>
+          <form id="codeForm" class="stack">
+            <label>発行枚数<input name="count" type="number" min="1" max="100" value="10" required></label>
+            <label>1コードの回数<input name="spins" type="number" min="1" max="1000" value="1" required></label>
+            <label>管理メモ<input name="memo" maxlength="200" placeholder="イベント名・配布先など"></label>
+            <button>コードを発行</button>
+          </form>
+          <div id="issuedBox" class="issued hidden"><div><strong>発行結果</strong><button id="copyCodes" type="button">すべてコピー</button></div><textarea id="issuedCodes" readonly></textarea></div>
+        </section>
+
+        <section class="card">
+          <h2>動画景品を登録</h2>
+          <form id="prizeForm" class="stack">
+            <label>ガチャ<select name="gacha_type"><option value="girls">おんなのこ</option><option value="boys">おとこのこ</option></select></label>
+            <label>レア度<select name="rarity"><option>R</option><option>SSR</option></select></label>
+            <label>表示名<input name="title" maxlength="120" required placeholder="ボイス動画の名前"></label>
+            <label>動画ファイル<input name="video" type="file" accept="video/mp4,video/webm,video/quicktime,video/x-m4v" required></label>
+            <button>動画をアップロード</button>
+          </form>
+          <p id="uploadStatus" class="status"></p>
+        </section>
+      </div>
+
+      <section class="card wide"><div class="heading-row"><h2>登録景品</h2><button id="refresh" type="button">更新</button></div><div id="prizeList" class="list"></div></section>
+      <section class="card wide"><h2>シリアル利用履歴（直近100件）</h2><div id="codeList" class="table-wrap"></div></section>
+    </div>
+  </main>
+  <script src="/admin/admin.js" defer></script>
+</body>
+</html>

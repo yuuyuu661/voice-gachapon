@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#17142f">
+  <title>OASIS Voice Gachapon</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">OASIS VOICE COLLECTION</p>
+      <h1>Voice Gachapon</h1>
+    </div>
+    <div class="account-card">
+      <span id="userName">ログイン確認中</span>
+      <strong><span id="credits">0</span> 回</strong>
+    </div>
+  </header>
+
+  <main>
+    <section id="loginNotice" class="notice hidden">
+      Discordから発行された専用リンクでアクセスしてください。
+    </section>
+
+    <section class="serial-panel glass">
+      <div>
+        <p class="eyebrow">SERIAL TICKET</p>
+        <h2>シリアルコードを登録</h2>
+        <p>コードに設定された回数だけ、好きなガチャを回せます。</p>
+      </div>
+      <form id="serialForm">
+        <input id="serialCode" autocomplete="off" spellcheck="false" placeholder="VG-XXXXX-XXXXX-XXXXX-XXXXX" aria-label="シリアルコード">
+        <button type="submit">コードを登録</button>
+      </form>
+    </section>
+
+    <section class="machine-tabs" aria-label="ガチャ選択">
+      <button class="machine-tab active girls" data-type="girls">
+        <span>おんなのこ</span><small>VOICE GACHA</small>
+      </button>
+      <button class="machine-tab boys" data-type="boys">
+        <span>おとこのこ</span><small>VOICE GACHA</small>
+      </button>
+    </section>
+
+    <section class="game-stage glass" id="gameStage" data-theme="girls">
+      <div class="machine-copy">
+        <p class="eyebrow" id="machineKicker">GIRLS COLLECTION</p>
+        <h2 id="machineTitle">おんなのこガチャ</h2>
+        <p>RとSSRの限定ボイス動画をコレクション。</p>
+        <div class="rate-row">
+          <span>R <b id="rRate">95%</b></span><span class="ssr">SSR <b id="ssrRate">5%</b></span>
+        </div>
+      </div>
+      <div class="machine-wrap">
+        <div class="sparkles" aria-hidden="true"></div>
+        <img id="machineImage" src="/assets/girls-machine.png" alt="おんなのこガチャ筐体">
+        <button id="spinButton" class="spin-button" type="button">
+          <span>1回まわす</span><small>残り <b id="spinCredits">0</b> 回</small>
+        </button>
+      </div>
+      <p id="status" class="status" role="status">準備中…</p>
+    </section>
+
+    <section class="collection-section">
+      <div class="section-head">
+        <div><p class="eyebrow">MY ARCHIVE</p><h2>ボイスコレクション</h2></div>
+        <div class="collection-tools">
+          <select id="collectionFilter" aria-label="コレクション絞り込み">
+            <option value="">すべて</option><option value="girls">おんなのこ</option><option value="boys">おとこのこ</option>
+          </select>
+          <button id="refreshCollection" type="button">更新</button>
+        </div>
+      </div>
+      <div id="collectionGrid" class="collection-grid"><p class="empty">読み込み中…</p></div>
+    </section>
+  </main>
+
+  <dialog id="resultDialog" class="result-dialog">
+    <button id="closeResult" class="dialog-close" aria-label="閉じる">×</button>
+    <div id="rarityBurst" class="rarity-burst">SSR</div>
+    <p id="newLabel" class="new-label">NEW!</p>
+    <h2 id="resultTitle">ボイスを獲得！</h2>
+    <video id="resultVideo" controls playsinline preload="metadata"></video>
+    <div class="dialog-actions">
+      <a id="downloadResult" class="download-button" href="#">動画を保存</a>
+      <button id="closeResultBottom" type="button">コレクションへ</button>
+    </div>
+  </dialog>
+
+  <audio id="revealSound" src="/assets/reveal.mp3" preload="auto"></audio>
+  <script src="/app.js" defer></script>
+</body>
+</html>
