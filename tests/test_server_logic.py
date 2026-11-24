@@ -47,6 +47,12 @@ class VoiceGachaSecurityTests(unittest.TestCase):
         self.assertIn("owned.user_id=$2", media)
         self.assertIn("prize.id=$3", media)
 
+    def test_delete_preserves_obtained_prizes(self):
+        delete = function_source("delete_prize")
+        self.assertIn("voice_gacha_pulls", delete)
+        self.assertIn("pull_count", delete)
+        self.assertIn("FOR UPDATE", delete)
+
     def test_only_expected_rarities_and_gacha_types(self):
         self.assertIn('Literal["R", "SSR"]', SOURCE)
         self.assertIn('Literal["boys", "girls"]', SOURCE)

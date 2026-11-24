@@ -52,6 +52,10 @@ class PrizeToggleRequest(AdminAuthRequest):
     active: bool
 
 
+class PrizeDeleteRequest(AdminAuthRequest):
+    prize_id: int
+
+
 def normalize_code(value: str) -> str:
     return "".join(ch for ch in value.upper().strip() if ch.isalnum())
 
@@ -427,6 +431,7 @@ async def spin(req: SpinRequest):
                 FROM voice_gacha_prizes
                 WHERE gacha_type=$1 AND active=TRUE
                 ORDER BY id
+                FOR SHARE
                 """,
                 req.gacha_type,
             )
@@ -662,6 +667,34 @@ async def toggle_prize(req: PrizeToggleRequest):
         )
     if not changed:
         raise HTTPException(status_code=404, detail="Prize not found")
+    return {"ok": True}
+
+
+@app.post("/api/admin/prizes/delete")
+async def delete_prize(req: PrizeDeleteRequest):
+    check_admin(req.password)
+    video_filename = None
+    async with app.state.pool.acquire() as conn:
+        async with conn.transaction():
+            prize = await conn.fetchrow(
+                "SELECT id,video_filename FROM voice_gacha_prizes WHERE id=$1 FOR UPDATE",
+                req.prize_id,
+            )
+            if not prize:
+                raise HTTPException(status_code=404, detail="景品が見つかりません")
+            pull_count = await conn.fetchval(
+                "SELECT COUNT(*) FROM voice_gacha_pulls WHERE prize_id=$1",
+                req.prize_id,
+            )
+            if int(pull_count or 0) > 0:
+                raise HTTPException(
+                    status_code=409,
+                    detail="獲得履歴がある景品は削除できません。排出停止を使用してください。",
+                )
+            video_filename = str(prize["video_filename"])
+            await conn.execute("DELETE FROM voice_gacha_prizes WHERE id=$1", req.prize_id)
+    if video_filename:
+        (VIDEO_ROOT / video_filename).unlink(missing_ok=True)
     return {"ok": True}
 
 
