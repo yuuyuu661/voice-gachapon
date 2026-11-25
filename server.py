@@ -56,6 +56,12 @@ class PrizeDeleteRequest(AdminAuthRequest):
     prize_id: int
 
 
+class RateUpdateRequest(AdminAuthRequest):
+    gacha_type: Literal["boys", "girls"]
+    r_percent: float = Field(ge=0, le=100)
+    ssr_percent: float = Field(ge=0, le=100)
+
+
 def normalize_code(value: str) -> str:
     return "".join(ch for ch in value.upper().strip() if ch.isalnum())
 
@@ -69,7 +75,12 @@ def make_serial_code() -> str:
     return f"{SERIAL_PREFIX}-{raw[:5]}-{raw[5:10]}-{raw[10:15]}-{raw[15:]}"
 
 
-def choose_rarity(has_r: bool, has_ssr: bool, draw: int | None = None) -> str:
+def choose_rarity(
+    has_r: bool,
+    has_ssr: bool,
+    draw: int | None = None,
+    ssr_rate_bps: int = SSR_RATE_BPS,
+) -> str:
     if not has_r and not has_ssr:
         raise ValueError("No active prizes")
     if not has_ssr:
@@ -77,7 +88,7 @@ def choose_rarity(has_r: bool, has_ssr: bool, draw: int | None = None) -> str:
     if not has_r:
         return "SSR"
     value = secrets.randbelow(10_000) if draw is None else draw
-    return "SSR" if value < SSR_RATE_BPS else "R"
+    return "SSR" if value < ssr_rate_bps else "R"
 
 
 def check_admin(password: str) -> None:
@@ -120,6 +131,11 @@ async def ensure_schema(pool: asyncpg.Pool) -> None:
             CREATE INDEX IF NOT EXISTS voice_gacha_sessions_user_idx
                 ON voice_gacha_sessions(guild_id,user_id);
 
+            CREATE TABLE IF NOT EXISTS voice_gacha_settings (
+                gacha_type TEXT PRIMARY KEY CHECK (gacha_type IN ('boys','girls')),
+                ssr_rate_bps INTEGER NOT NULL CHECK (ssr_rate_bps BETWEEN 0 AND 10000),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
             CREATE TABLE IF NOT EXISTS voice_gacha_serial_codes (
                 code_hash TEXT PRIMARY KEY,
                 code_hint TEXT NOT NULL,
@@ -170,6 +186,14 @@ async def ensure_schema(pool: asyncpg.Pool) -> None:
             CREATE INDEX IF NOT EXISTS voice_gacha_pulls_user_idx
                 ON voice_gacha_pulls(guild_id, user_id, created_at DESC);
             """
+        )
+        await conn.execute(
+            """
+            INSERT INTO voice_gacha_settings(gacha_type,ssr_rate_bps)
+            VALUES ('boys',$1),('girls',$1)
+            ON CONFLICT(gacha_type) DO NOTHING
+            """,
+            SSR_RATE_BPS,
         )
 
 
@@ -264,13 +288,26 @@ async def me(session: str):
             str(data["guild_id"]),
             str(data["user_id"]),
         )
+        settings = await conn.fetch(
+            "SELECT gacha_type,ssr_rate_bps FROM voice_gacha_settings ORDER BY gacha_type"
+        )
+    gacha_rates = {
+        str(row["gacha_type"]): {
+            "R": (10_000 - int(row["ssr_rate_bps"])) / 100,
+            "SSR": int(row["ssr_rate_bps"]) / 100,
+        }
+        for row in settings
+    }
     return {
         "user_id": str(data["user_id"]),
         "user_name": str(data["user_name"]),
         "credits": credits,
         "unique_count": int(counts["unique_count"] or 0),
         "total_count": int(counts["total_count"] or 0),
-        "rates": {"R": (10_000 - SSR_RATE_BPS) / 100, "SSR": SSR_RATE_BPS / 100},
+        "rates": gacha_rates.get(
+            "girls", {"R": (10_000 - SSR_RATE_BPS) / 100, "SSR": SSR_RATE_BPS / 100}
+        ),
+        "gacha_rates": gacha_rates,
     }
 
 
@@ -435,10 +472,15 @@ async def spin(req: SpinRequest):
                 """,
                 req.gacha_type,
             )
+            ssr_rate_bps = await conn.fetchval(
+                "SELECT ssr_rate_bps FROM voice_gacha_settings WHERE gacha_type=$1",
+                req.gacha_type,
+            )
             try:
                 rarity = choose_rarity(
                     any(row["rarity"] == "R" for row in rows),
                     any(row["rarity"] == "SSR" for row in rows),
+                    ssr_rate_bps=int(ssr_rate_bps if ssr_rate_bps is not None else SSR_RATE_BPS),
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -599,11 +641,46 @@ async def admin_overview(req: AdminAuthRequest):
               (SELECT COUNT(*) FROM voice_gacha_serial_codes WHERE redeemed_at IS NOT NULL)::INTEGER AS redeemed_codes
             """
         )
+        settings = await conn.fetch(
+            "SELECT gacha_type,ssr_rate_bps,updated_at FROM voice_gacha_settings ORDER BY gacha_type"
+        )
     return {
         "prizes": [dict(row) for row in prizes],
         "codes": [dict(row) for row in codes],
         "stats": dict(stats),
-        "ssr_rate_percent": SSR_RATE_BPS / 100,
+        "rates": {
+            str(row["gacha_type"]): {
+                "R": (10_000 - int(row["ssr_rate_bps"])) / 100,
+                "SSR": int(row["ssr_rate_bps"]) / 100,
+                "updated_at": row["updated_at"],
+            }
+            for row in settings
+        },
+    }
+
+
+@app.post("/api/admin/rates")
+async def update_rates(req: RateUpdateRequest):
+    check_admin(req.password)
+    if abs((req.r_percent + req.ssr_percent) - 100) > 0.001:
+        raise HTTPException(status_code=400, detail="RとSSRの合計を100%にしてください")
+    ssr_rate_bps = int(round(req.ssr_percent * 100))
+    async with app.state.pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO voice_gacha_settings(gacha_type,ssr_rate_bps,updated_at)
+            VALUES($1,$2,NOW())
+            ON CONFLICT(gacha_type) DO UPDATE SET
+                ssr_rate_bps=EXCLUDED.ssr_rate_bps,
+                updated_at=NOW()
+            """,
+            req.gacha_type,
+            ssr_rate_bps,
+        )
+    return {
+        "ok": True,
+        "gacha_type": req.gacha_type,
+        "rates": {"R": (10_000 - ssr_rate_bps) / 100, "SSR": ssr_rate_bps / 100},
     }
 
 

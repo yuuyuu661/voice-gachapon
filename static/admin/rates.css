@@ -1,0 +1,38 @@
+.rate-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.rate-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: end;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 16px;
+  background: #0b0a1d;
+}
+
+.rate-form h3 {
+  grid-column: 1 / -1;
+  margin: 0 0 3px;
+}
+
+.rate-form label {
+  display: grid;
+  gap: 7px;
+  color: #d8d1e7;
+}
+
+.rate-form button { min-height: 43px; }
+
+@media (max-width: 760px) {
+  .rate-settings { grid-template-columns: 1fr; }
+  .rate-form { grid-template-columns: 1fr 1fr; }
+  .rate-form button { grid-column: 1 / -1; }
+}
+
+@media (max-width: 420px) {
+  .rate-form { grid-template-columns: 1fr; }
+}

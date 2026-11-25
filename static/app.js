@@ -20,6 +20,12 @@ async function api(path, options = {}) {
 }
 
 function setStatus(message) { $("status").textContent = message; }
+function updateDisplayedRates() {
+  const rates = profile?.gacha_rates?.[selectedType] || profile?.rates;
+  if (!rates) return;
+  $("rRate").textContent = `${rates.R}%`;
+  $("ssrRate").textContent = `${rates.SSR}%`;
+}
 function setCredits(value) {
   const credits = Math.max(0, Number(value || 0));
   $("credits").textContent = credits.toLocaleString();
@@ -52,8 +58,7 @@ async function initialize() {
   try {
     profile = await api(`/api/me?session=${encodeURIComponent(session)}`);
     $("userName").textContent = profile.user_name;
-    $("rRate").textContent = `${profile.rates.R}%`;
-    $("ssrRate").textContent = `${profile.rates.SSR}%`;
+    updateDisplayedRates();
     setCredits(profile.credits);
     setStatus(profile.credits > 0 ? "ガチャを選んで回してください。" : "シリアルコードを登録してください。");
     await loadCollection();
@@ -76,6 +81,7 @@ document.querySelectorAll(".machine-tab").forEach((button) => {
     $("machineImage").alt = girls ? "おんなのこガチャ筐体" : "おとこのこガチャ筐体";
     $("machineKicker").textContent = girls ? "GIRLS COLLECTION" : "BOYS COLLECTION";
     $("machineTitle").textContent = girls ? "おんなのこガチャ" : "おとこのこガチャ";
+    updateDisplayedRates();
   });
 });
 
@@ -95,6 +101,7 @@ $("serialForm").addEventListener("submit", async (event) => {
       localStorage.setItem("voiceGachaSession", session);
       profile = await api(`/api/me?session=${encodeURIComponent(session)}`);
       $("userName").textContent = profile.user_name;
+      updateDisplayedRates();
       $("loginNotice").classList.add("hidden");
       await loadCollection();
     }

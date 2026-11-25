@@ -57,6 +57,15 @@ class VoiceGachaSecurityTests(unittest.TestCase):
         self.assertIn('Literal["R", "SSR"]', SOURCE)
         self.assertIn('Literal["boys", "girls"]', SOURCE)
 
+    def test_configured_rates_are_persistent_and_used_by_spin(self):
+        self.assertIn("voice_gacha_settings", SOURCE)
+        spin = function_source("spin")
+        self.assertIn("ssr_rate_bps", spin)
+        self.assertIn("choose_rarity", spin)
+        update = function_source("update_rates")
+        self.assertIn("req.r_percent + req.ssr_percent", update)
+        self.assertIn("ON CONFLICT(gacha_type) DO UPDATE", update)
+
 
 if __name__ == "__main__":
     unittest.main()
