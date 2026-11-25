@@ -149,7 +149,7 @@ $("spinButton").addEventListener("click", async () => {
 async function showPrize(prize) {
   const sound = $("revealSound");
   sound.currentTime = 0;
-  sound.volume = .72;
+  sound.volume = .5;
   sound.play().catch(() => {});
   $("rarityBurst").textContent = prize.rarity;
   $("rarityBurst").className = `rarity-burst ${prize.rarity.toLowerCase()}`;
