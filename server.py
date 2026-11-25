@@ -311,6 +311,23 @@ async def me(session: str):
     }
 
 
+@app.get("/api/rates")
+async def public_rates():
+    async with app.state.pool.acquire() as conn:
+        settings = await conn.fetch(
+            "SELECT gacha_type,ssr_rate_bps FROM voice_gacha_settings ORDER BY gacha_type"
+        )
+    return {
+        "rates": {
+            str(row["gacha_type"]): {
+                "R": (10_000 - int(row["ssr_rate_bps"])) / 100,
+                "SSR": int(row["ssr_rate_bps"]) / 100,
+            }
+            for row in settings
+        }
+    }
+
+
 @app.post("/api/redeem")
 async def redeem(req: RedeemRequest, request: Request):
     data = await require_session(app.state.pool, req.session) if req.session else None

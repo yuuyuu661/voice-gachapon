@@ -9,6 +9,7 @@ if (sessionFromUrl) {
 }
 let selectedType = "girls";
 let profile = null;
+let publicRates = null;
 let spinning = false;
 
 async function api(path, options = {}) {
@@ -21,10 +22,18 @@ async function api(path, options = {}) {
 
 function setStatus(message) { $("status").textContent = message; }
 function updateDisplayedRates() {
-  const rates = profile?.gacha_rates?.[selectedType] || profile?.rates;
+  const rates = profile?.gacha_rates?.[selectedType] || publicRates?.[selectedType] || profile?.rates;
   if (!rates) return;
   $("rRate").textContent = `${rates.R}%`;
   $("ssrRate").textContent = `${rates.SSR}%`;
+}
+
+async function loadPublicRates() {
+  try {
+    const data = await api("/api/rates", {cache: "no-store"});
+    publicRates = data.rates;
+    updateDisplayedRates();
+  } catch {}
 }
 function setCredits(value) {
   const credits = Math.max(0, Number(value || 0));
@@ -47,6 +56,7 @@ function errorText(error) {
 }
 
 async function initialize() {
+  await loadPublicRates();
   if (!session) {
     $("loginNotice").classList.remove("hidden");
     $("loginNotice").textContent = "最初のシリアルコードを入力すると、あなた専用のコレクションが作成されます。使用したコードはコレクション復元にも使えます。";

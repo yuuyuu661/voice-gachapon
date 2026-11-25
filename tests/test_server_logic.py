@@ -66,6 +66,12 @@ class VoiceGachaSecurityTests(unittest.TestCase):
         self.assertIn("req.r_percent + req.ssr_percent", update)
         self.assertIn("ON CONFLICT(gacha_type) DO UPDATE", update)
 
+    def test_current_rates_have_a_public_read_only_endpoint(self):
+        public_rates = function_source("public_rates")
+        self.assertIn("voice_gacha_settings", public_rates)
+        self.assertNotIn("UPDATE", public_rates)
+        self.assertNotIn("INSERT", public_rates)
+
 
 if __name__ == "__main__":
     unittest.main()
