@@ -42,7 +42,7 @@ class AdminAuthRequest(BaseModel):
 
 
 class IssueCodesRequest(AdminAuthRequest):
-    count: int = Field(ge=1, le=100)
+    count: int = Field(default=1, ge=1, le=1)
     spins: int = Field(ge=1, le=1000)
     memo: str = Field(default="", max_length=300)
 

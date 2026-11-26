@@ -72,6 +72,9 @@ class VoiceGachaSecurityTests(unittest.TestCase):
         self.assertNotIn("UPDATE", public_rates)
         self.assertNotIn("INSERT", public_rates)
 
+    def test_serial_issuance_is_limited_to_one_code(self):
+        self.assertIn("count: int = Field(default=1, ge=1, le=1)", SOURCE)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -68,7 +68,7 @@ $("codeForm").onsubmit = async (event) => {
   const button = event.submitter;
   button.disabled = true;
   try {
-    const data = await api("/api/admin/codes", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({password, count: Number(formData.get("count")), spins: Number(formData.get("spins")), memo: formData.get("memo")})});
+    const data = await api("/api/admin/codes", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({password, count: 1, spins: Number(formData.get("spins")), memo: formData.get("memo")})});
     $("issuedCodes").value = data.codes.join("\n");
     $("issuedBox").classList.remove("hidden");
     await load();

@@ -42,10 +42,9 @@
         <section class="card">
           <h2>シリアルコード発行</h2>
           <form id="codeForm" class="stack">
-            <label>発行枚数<input name="count" type="number" min="1" max="100" value="10" required></label>
             <label>1コードの回数<input name="spins" type="number" min="1" max="1000" value="1" required></label>
             <label>管理メモ<input name="memo" maxlength="200" placeholder="イベント名・配布先など"></label>
-            <button>コードを発行</button>
+            <button>コードを1枚発行</button>
           </form>
           <div id="issuedBox" class="issued hidden"><div><strong>発行結果</strong><button id="copyCodes" type="button">すべてコピー</button></div><textarea id="issuedCodes" readonly></textarea></div>
         </section>
@@ -67,6 +66,6 @@
       <section class="card wide"><h2>シリアル利用履歴（直近100件）</h2><div id="codeList" class="table-wrap"></div></section>
     </div>
   </main>
-  <script src="/admin/admin.js?v=20261125-4" defer></script>
+  <script src="/admin/admin.js?v=20261127-1" defer></script>
 </body>
 </html>
